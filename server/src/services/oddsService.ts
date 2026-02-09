@@ -3,10 +3,33 @@ import { env } from '../config/env.js';
 import { Game } from '../models/Game.js';
 import { Event } from '../models/Event.js';
 import { eventBus } from './eventBus.js';
+import { getMockOddsResponse } from '../mocks/fixtures.js';
 import type { OddsApiEvent } from '../types/oddsApi.js';
 import type { IGame } from '../types/index.js';
 
 const ODDS_BASE_URL = 'https://api.the-odds-api.com/v4/sports';
+
+async function fetchOddsFromApi(sportKey: string): Promise<OddsApiEvent[]> {
+  const { data, headers } = await axios.get<OddsApiEvent[]>(
+    `${ODDS_BASE_URL}/${sportKey}/odds`,
+    {
+      params: {
+        apiKey: env.ODDS_API_KEY,
+        regions: 'us',
+        markets: 'h2h,spreads,totals',
+        oddsFormat: 'american',
+      },
+    },
+  );
+
+  console.log(
+    `[odds] Fetched ${data.length} events for ${sportKey} | ` +
+    `Remaining: ${headers['x-requests-remaining']} | ` +
+    `Used: ${headers['x-requests-used']}`,
+  );
+
+  return data;
+}
 
 export async function syncOdds(): Promise<void> {
   try {
@@ -15,25 +38,13 @@ export async function syncOdds(): Promise<void> {
     if (activeEvents.length === 0) return;
 
     for (const event of activeEvents) {
-      const sportKey = event.sportKey;
+      const data = env.MOCK_API
+        ? getMockOddsResponse()
+        : await fetchOddsFromApi(event.sportKey);
 
-      const { data, headers } = await axios.get<OddsApiEvent[]>(
-        `${ODDS_BASE_URL}/${sportKey}/odds`,
-        {
-          params: {
-            apiKey: env.ODDS_API_KEY,
-            regions: 'us',
-            markets: 'h2h,spreads,totals',
-            oddsFormat: 'american',
-          },
-        },
-      );
-
-      console.log(
-        `[odds] Fetched ${data.length} events for ${sportKey} | ` +
-        `Remaining: ${headers['x-requests-remaining']} | ` +
-        `Used: ${headers['x-requests-used']}`,
-      );
+      if (env.MOCK_API) {
+        console.log(`[odds] Mock: generated ${data.length} events`);
+      }
 
       const updatedGames: IGame[] = [];
 

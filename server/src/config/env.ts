@@ -6,4 +6,5 @@ export const env = {
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/odds-dashboard',
   ODDS_API_KEY: process.env.ODDS_API_KEY || '',
   ODDS_POLL_INTERVAL_MS: parseInt(process.env.ODDS_POLL_INTERVAL_MS || '30000', 10),
+  MOCK_API: process.env.MOCK_API === 'true',
 } as const;

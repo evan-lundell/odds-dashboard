@@ -29,10 +29,14 @@ app.get('/api/health', (_req, res) => {
 async function main() {
   await connectDB();
 
-  if (env.ODDS_API_KEY) {
+  if (env.MOCK_API) {
+    console.log('[server] MOCK_API enabled — using simulated odds and scores data');
+    startScheduler();
+  } else if (env.ODDS_API_KEY) {
     startScheduler();
   } else {
-    console.warn('[server] ODDS_API_KEY not set — scheduler disabled. Set it in .env to enable odds syncing.');
+    console.warn('[server] ODDS_API_KEY not set and MOCK_API not enabled — scheduler disabled.');
+    console.warn('[server] Set MOCK_API=true in .env for local dev, or add your ODDS_API_KEY.');
   }
 
   app.listen(env.PORT, () => {

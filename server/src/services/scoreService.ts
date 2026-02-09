@@ -4,6 +4,7 @@ import { Game } from '../models/Game.js';
 import { Bet } from '../models/Bet.js';
 import { Event } from '../models/Event.js';
 import { eventBus } from './eventBus.js';
+import { getMockScoresResponse } from '../mocks/fixtures.js';
 import type { OddsApiScoreEvent } from '../types/oddsApi.js';
 import type { IGame, IBet, IParticipant, BetStatus } from '../types/index.js';
 
@@ -84,15 +85,22 @@ export async function syncScores(): Promise<void> {
     for (const event of activeEvents) {
       const sportKey = event.sportKey;
 
-      const { data } = await axios.get<OddsApiScoreEvent[]>(
-        `${SCORES_BASE_URL}/${sportKey}/scores`,
-        {
-          params: {
-            apiKey: env.ODDS_API_KEY,
-            daysFrom: 3,
+      let data: OddsApiScoreEvent[];
+      if (env.MOCK_API) {
+        data = getMockScoresResponse();
+        console.log(`[scores] Mock: generated ${data.length} score events`);
+      } else {
+        const response = await axios.get<OddsApiScoreEvent[]>(
+          `${SCORES_BASE_URL}/${sportKey}/scores`,
+          {
+            params: {
+              apiKey: env.ODDS_API_KEY,
+              daysFrom: 3,
+            },
           },
-        },
-      );
+        );
+        data = response.data;
+      }
 
       const updatedGames: IGame[] = [];
       const settledBets: IBet[] = [];
