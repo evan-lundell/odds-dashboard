@@ -16,6 +16,7 @@ const eventSchema = new Schema<EventDocument>(
     name: { type: String, required: true },
     sportKey: { type: String, required: true, default: 'basketball_ncaab' },
     participants: { type: [participantSchema], default: [] },
+    allowedTeams: { type: [String], default: [] },
     startingBalance: { type: Number, required: true, default: 1000 },
     status: { type: String, enum: ['active', 'archived'], default: 'active' },
   },

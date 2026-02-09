@@ -24,13 +24,17 @@ export default function Dashboard() {
   const { event } = useEvent(activeEventId);
   const { games, setGames, loading: gamesLoading } = useGames(activeEventId);
 
-  // SSE: update games in real time
+  // SSE: update games in real time, removing completed games
   useSSE(activeEventId, {
     onGamesUpdated: useCallback((updatedGames: Game[]) => {
       setGames((prev) => {
         const map = new Map(prev.map((g) => [g._id, g]));
         for (const g of updatedGames) {
-          map.set(g._id, g);
+          if (g.completed) {
+            map.delete(g._id);
+          } else {
+            map.set(g._id, g);
+          }
         }
         return Array.from(map.values()).sort(
           (a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime(),
@@ -41,7 +45,11 @@ export default function Dashboard() {
       setGames((prev) => {
         const map = new Map(prev.map((g) => [g._id, g]));
         for (const g of updatedGames) {
-          map.set(g._id, g);
+          if (g.completed) {
+            map.delete(g._id);
+          } else {
+            map.set(g._id, g);
+          }
         }
         return Array.from(map.values()).sort(
           (a, b) => new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime(),
@@ -50,7 +58,9 @@ export default function Dashboard() {
     }, [setGames]),
   });
 
-  const groupedGames = groupGamesByDate(games);
+  // Filter out completed games (in case any slipped through before SSE removal)
+  const activeGames = games.filter((g) => !g.completed);
+  const groupedGames = groupGamesByDate(activeGames);
 
   function handleSelectBet(game: Game, market: MarketType, outcome: Outcome, bookmaker: string) {
     setBetSelection({ game, market, outcome, bookmaker });

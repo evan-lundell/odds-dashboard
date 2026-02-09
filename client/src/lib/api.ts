@@ -21,6 +21,7 @@ export async function createEvent(body: {
   name: string;
   sportKey?: string;
   participantNames: string[];
+  allowedTeams?: string[];
   startingBalance?: number;
 }): Promise<BettingEvent> {
   const { data } = await api.post<BettingEvent>('/events', body);

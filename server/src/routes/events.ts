@@ -30,7 +30,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/events - create event
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sportKey, participantNames, startingBalance } = req.body;
+    const { name, sportKey, participantNames, startingBalance, allowedTeams } = req.body;
 
     const balance = startingBalance ?? 1000;
     const participants = (participantNames as string[]).map((pName) => ({
@@ -38,10 +38,16 @@ router.post('/', async (req: Request, res: Response) => {
       balance,
     }));
 
+    // Clean up team names: trim whitespace, remove empties
+    const teams = Array.isArray(allowedTeams)
+      ? (allowedTeams as string[]).map((t) => t.trim()).filter(Boolean)
+      : [];
+
     const event = await Event.create({
       name,
       sportKey: sportKey || 'basketball_ncaab',
       participants,
+      allowedTeams: teams,
       startingBalance: balance,
     });
 

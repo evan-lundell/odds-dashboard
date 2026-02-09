@@ -13,7 +13,13 @@ router.get('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const games = await Game.find({ eventId })
+    const includeCompleted = req.query.includeCompleted === 'true';
+    const filter: Record<string, unknown> = { eventId };
+    if (!includeCompleted) {
+      filter.completed = false;
+    }
+
+    const games = await Game.find(filter)
       .sort({ commenceTime: 1 });
 
     res.json(games);

@@ -46,9 +46,25 @@ export async function syncOdds(): Promise<void> {
         console.log(`[odds] Mock: generated ${data.length} events`);
       }
 
+      // Filter to only allowed teams (if the event has a team list)
+      const allowedSet = event.allowedTeams.length > 0
+        ? new Set(event.allowedTeams.map((t) => t.toLowerCase()))
+        : null;
+
+      const filteredData = allowedSet
+        ? data.filter((e) =>
+            allowedSet.has(e.home_team.toLowerCase()) &&
+            allowedSet.has(e.away_team.toLowerCase()),
+          )
+        : data;
+
+      if (allowedSet) {
+        console.log(`[odds] Filtered ${data.length} -> ${filteredData.length} games (${allowedSet.size} allowed teams)`);
+      }
+
       const updatedGames: IGame[] = [];
 
-      for (const apiEvent of data) {
+      for (const apiEvent of filteredData) {
         const game = await Game.findOneAndUpdate(
           { apiId: apiEvent.id, eventId: event._id },
           {

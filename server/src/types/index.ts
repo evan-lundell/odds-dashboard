@@ -12,6 +12,7 @@ export interface IEvent {
   name: string;
   sportKey: string;
   participants: IParticipant[];
+  allowedTeams: string[];
   startingBalance: number;
   status: 'active' | 'archived';
   createdAt: Date;

@@ -8,6 +8,7 @@ export default function EventSetup() {
   const [startingBalance, setStartingBalance] = useState('1000');
   const [participantInput, setParticipantInput] = useState('');
   const [participants, setParticipants] = useState<string[]>([]);
+  const [teamsText, setTeamsText] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,11 +42,18 @@ export default function EventSetup() {
     if (!name.trim()) { setError('Event name is required'); return; }
     if (participants.length < 2) { setError('Add at least 2 participants'); return; }
 
+    // Parse team names from the textarea (comma, newline, or tab separated)
+    const allowedTeams = teamsText
+      .split(/[,\n\t]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     setSubmitting(true);
     try {
       await createEvent({
         name: name.trim(),
         participantNames: participants,
+        allowedTeams,
         startingBalance: parseFloat(startingBalance) || 1000,
       });
       navigate('/');
@@ -83,6 +91,30 @@ export default function EventSetup() {
             onChange={(e) => setStartingBalance(e.target.value)}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
+        </div>
+
+        {/* Allowed Teams */}
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">
+            Tournament Teams
+            <span className="text-gray-600 ml-1 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Paste team names to filter which games show up. Only games where both teams are on this
+            list will appear. Leave empty to show all NCAAB games. Separate with commas, newlines, or tabs.
+          </p>
+          <textarea
+            value={teamsText}
+            onChange={(e) => setTeamsText(e.target.value)}
+            rows={6}
+            placeholder={"Duke Blue Devils\nGonzaga Bulldogs\nKansas Jayhawks\nUConn Huskies\n..."}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+          />
+          {teamsText.trim() && (
+            <p className="text-xs text-gray-500 mt-1">
+              {teamsText.split(/[,\n\t]+/).map((t) => t.trim()).filter(Boolean).length} teams detected
+            </p>
+          )}
         </div>
 
         {/* Participants */}

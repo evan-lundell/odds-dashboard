@@ -10,6 +10,7 @@ export interface BettingEvent {
   name: string;
   sportKey: string;
   participants: Participant[];
+  allowedTeams: string[];
   startingBalance: number;
   status: 'active' | 'archived';
   createdAt: string;
