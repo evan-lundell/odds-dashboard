@@ -1,6 +1,13 @@
 import axios from 'axios';
 import type { BettingEvent, Game, Bet, LeaderboardEntry, MarketType, Pick } from '../types';
 
+export interface BetLegInput {
+  gameId: string;
+  market: MarketType;
+  pick: Pick;
+  bookmaker: string;
+}
+
 const api = axios.create({
   baseURL: '/api',
 });
@@ -23,6 +30,9 @@ export async function createEvent(body: {
   participantNames: string[];
   allowedTeams?: string[];
   startingBalance?: number;
+  maxParlayLegs?: number;
+  startDate: string;
+  endDate: string;
 }): Promise<BettingEvent> {
   const { data } = await api.post<BettingEvent>('/events', body);
   return data;
@@ -60,12 +70,9 @@ export async function fetchLeaderboard(eventId: string): Promise<LeaderboardEntr
 
 export async function placeBet(body: {
   eventId: string;
-  gameId: string;
   participant: string;
-  market: MarketType;
-  pick: Pick;
-  bookmaker: string;
   amount: number;
+  legs: BetLegInput[];
 }): Promise<Bet> {
   const { data } = await api.post<Bet>('/bets', body);
   return data;

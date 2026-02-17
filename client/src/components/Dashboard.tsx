@@ -5,23 +5,26 @@ import { useGames } from '../hooks/useGames';
 import { useSSE } from '../hooks/useSSE';
 import { groupGamesByDate } from '../lib/odds';
 import GameCard from './GameCard';
-import BetModal from './BetModal';
-
-interface BetSelection {
-  game: Game;
-  market: MarketType;
-  outcome: Outcome;
-  bookmaker: string;
-}
+import BetSlip, { type SlipLeg } from './BetSlip';
 
 export default function Dashboard() {
   const { events, loading: eventsLoading } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [betSelection, setBetSelection] = useState<BetSelection | null>(null);
+  const [legs, setLegs] = useState<SlipLeg[]>([]);
+
+  // Filter to only active events (status is active and current date is within start/end range)
+  const now = new Date();
+  const activeEvents = events.filter((e) => {
+    if (e.status !== 'active') return false;
+    const start = new Date(e.startDate);
+    const end = new Date(e.endDate);
+    // Include event if today is on or after start, and on or before end
+    return now >= start && now <= end;
+  });
 
   // Auto-select first active event
-  const activeEventId = selectedEventId ?? events.find((e) => e.status === 'active')?._id ?? null;
-  const { event } = useEvent(activeEventId);
+  const activeEventId = selectedEventId ?? activeEvents[0]?._id ?? null;
+  const { event, reload: refetchEvent } = useEvent(activeEventId);
   const { games, setGames, loading: gamesLoading } = useGames(activeEventId);
 
   // SSE: update games in real time, removing completed games
@@ -58,22 +61,51 @@ export default function Dashboard() {
     }, [setGames]),
   });
 
-  // Filter out completed games (in case any slipped through before SSE removal)
+  // Filter out completed games (safety net)
   const activeGames = games.filter((g) => !g.completed);
   const groupedGames = groupGamesByDate(activeGames);
 
-  function handleSelectBet(game: Game, market: MarketType, outcome: Outcome, bookmaker: string) {
-    setBetSelection({ game, market, outcome, bookmaker });
+  function handleToggleLeg(game: Game, market: MarketType, outcome: Outcome, bookmaker: string) {
+    setLegs((prev) => {
+      // Check if this exact selection already exists (same game + market + outcome)
+      const existingIdx = prev.findIndex(
+        (l) => l.game._id === game._id && l.market === market && l.outcome.name === outcome.name,
+      );
+      if (existingIdx >= 0) {
+        // Deselect
+        return prev.filter((_, i) => i !== existingIdx);
+      }
+      // Remove any existing leg on the same game + market (e.g. switching from Team A ML to Team B ML)
+      const filtered = prev.filter(
+        (l) => !(l.game._id === game._id && l.market === market),
+      );
+      // Add new leg
+      return [...filtered, { game, market, outcome, bookmaker }];
+    });
+  }
+
+  function handleRemoveLeg(index: number) {
+    setLegs((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleClear() {
+    setLegs([]);
+  }
+
+  function handleBetPlaced() {
+    refetchEvent();
   }
 
   if (eventsLoading) {
     return <div className="text-gray-500 text-center py-20">Loading events...</div>;
   }
 
-  if (events.length === 0) {
+  if (activeEvents.length === 0) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">No events yet. Create one to get started.</p>
+        <p className="text-gray-500 mb-4">
+          {events.length === 0 ? 'No events yet. Create one to get started.' : 'No active events right now.'}
+        </p>
         <a
           href="/events/new"
           className="inline-block px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
@@ -85,7 +117,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div>
+    <div className={legs.length > 0 ? 'pb-60' : ''}>
       {/* Event Selector */}
       <div className="flex items-center gap-4 mb-6">
         <select
@@ -93,7 +125,7 @@ export default function Dashboard() {
           onChange={(e) => setSelectedEventId(e.target.value)}
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
-          {events.map((ev) => (
+          {activeEvents.map((ev) => (
             <option key={ev._id} value={ev._id}>
               {ev.name}
             </option>
@@ -109,7 +141,7 @@ export default function Dashboard() {
       {/* Games */}
       {gamesLoading ? (
         <div className="text-gray-500 text-center py-12">Loading games...</div>
-      ) : games.length === 0 ? (
+      ) : activeGames.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500 mb-2">No games found.</p>
           <p className="text-gray-600 text-sm">
@@ -125,7 +157,12 @@ export default function Dashboard() {
               </h2>
               <div className="space-y-3">
                 {(dateGames as Game[]).map((game) => (
-                  <GameCard key={game._id} game={game} onSelectBet={handleSelectBet} />
+                  <GameCard
+                    key={game._id}
+                    game={game}
+                    selectedLegs={legs}
+                    onToggleLeg={handleToggleLeg}
+                  />
                 ))}
               </div>
             </div>
@@ -133,19 +170,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Bet Modal */}
-      {betSelection && event && (
-        <BetModal
-          game={betSelection.game}
-          market={betSelection.market}
-          outcome={betSelection.outcome}
-          bookmaker={betSelection.bookmaker}
+      {/* Bet Slip */}
+      {event && (
+        <BetSlip
+          legs={legs}
           event={event}
-          onClose={() => setBetSelection(null)}
-          onBetPlaced={() => {
-            // Refresh event to get updated balances
-            // The useEvent hook will handle this on next render
-          }}
+          onRemoveLeg={handleRemoveLeg}
+          onClear={handleClear}
+          onBetPlaced={handleBetPlaced}
         />
       )}
     </div>

@@ -1,16 +1,17 @@
 import type { Game, Outcome, MarketType } from '../types';
+import type { SlipLeg } from './BetSlip';
 import { formatOdds, formatPoint, formatGameTime } from '../lib/odds';
 
 interface GameCardProps {
   game: Game;
-  onSelectBet: (game: Game, market: MarketType, outcome: Outcome, bookmaker: string) => void;
+  selectedLegs: SlipLeg[];
+  onToggleLeg: (game: Game, market: MarketType, outcome: Outcome, bookmaker: string) => void;
 }
 
-export default function GameCard({ game, onSelectBet }: GameCardProps) {
+export default function GameCard({ game, selectedLegs, onToggleLeg }: GameCardProps) {
   const isLive = !game.completed && new Date(game.commenceTime) <= new Date();
   const isCompleted = game.completed;
 
-  // Use the first bookmaker with data (typically the consensus / most popular)
   const primaryBookmaker = game.bookmakers[0];
   const h2h = primaryBookmaker?.markets.find((m) => m.key === 'h2h');
   const spreads = primaryBookmaker?.markets.find((m) => m.key === 'spreads');
@@ -25,9 +26,15 @@ export default function GameCard({ game, onSelectBet }: GameCardProps) {
 
   const bookmakerKey = primaryBookmaker?.key ?? '';
 
+  function isSelected(market: MarketType, outcomeName: string): boolean {
+    return selectedLegs.some(
+      (l) => l.game._id === game._id && l.market === market && l.outcome.name === outcomeName,
+    );
+  }
+
   function handleClick(market: MarketType, outcome: Outcome | undefined) {
     if (!outcome || isCompleted) return;
-    onSelectBet(game, market, outcome, bookmakerKey);
+    onToggleLeg(game, market, outcome, bookmakerKey);
   }
 
   return (
@@ -77,11 +84,12 @@ export default function GameCard({ game, onSelectBet }: GameCardProps) {
             </span>
           )}
         </div>
-        <OddsCell outcome={awayH2H} disabled={isCompleted} onClick={() => handleClick('h2h', awayH2H)} />
+        <OddsCell outcome={awayH2H} disabled={isCompleted} selected={isSelected('h2h', game.awayTeam)} onClick={() => handleClick('h2h', awayH2H)} />
         <OddsCell
           outcome={awaySpread}
           showPoint
           disabled={isCompleted}
+          selected={isSelected('spreads', game.awayTeam)}
           onClick={() => handleClick('spreads', awaySpread)}
         />
         <OddsCell
@@ -89,6 +97,7 @@ export default function GameCard({ game, onSelectBet }: GameCardProps) {
           showPoint
           prefix="O"
           disabled={isCompleted}
+          selected={isSelected('totals', 'Over')}
           onClick={() => handleClick('totals', over)}
         />
 
@@ -101,11 +110,12 @@ export default function GameCard({ game, onSelectBet }: GameCardProps) {
             </span>
           )}
         </div>
-        <OddsCell outcome={homeH2H} disabled={isCompleted} onClick={() => handleClick('h2h', homeH2H)} />
+        <OddsCell outcome={homeH2H} disabled={isCompleted} selected={isSelected('h2h', game.homeTeam)} onClick={() => handleClick('h2h', homeH2H)} />
         <OddsCell
           outcome={homeSpread}
           showPoint
           disabled={isCompleted}
+          selected={isSelected('spreads', game.homeTeam)}
           onClick={() => handleClick('spreads', homeSpread)}
         />
         <OddsCell
@@ -113,6 +123,7 @@ export default function GameCard({ game, onSelectBet }: GameCardProps) {
           showPoint
           prefix="U"
           disabled={isCompleted}
+          selected={isSelected('totals', 'Under')}
           onClick={() => handleClick('totals', under)}
         />
       </div>
@@ -125,34 +136,47 @@ function OddsCell({
   showPoint,
   prefix,
   disabled,
+  selected,
   onClick,
 }: {
   outcome?: Outcome;
   showPoint?: boolean;
   prefix?: string;
   disabled?: boolean;
+  selected?: boolean;
   onClick: () => void;
 }) {
   if (!outcome) {
     return <div className="bg-gray-900 px-3 py-2.5 text-center text-gray-600 text-sm">-</div>;
   }
 
+  const baseClasses = 'px-3 py-2.5 text-center text-sm transition-colors';
+  const stateClasses = disabled
+    ? 'bg-gray-900 text-gray-600 cursor-default'
+    : selected
+      ? 'bg-orange-500/20 border border-orange-500/50 text-orange-300 cursor-pointer hover:bg-orange-500/30'
+      : 'bg-gray-900 text-gray-300 hover:bg-gray-800 hover:text-orange-400 cursor-pointer';
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`bg-gray-900 px-3 py-2.5 text-center text-sm transition-colors ${
-        disabled
-          ? 'text-gray-600 cursor-default'
-          : 'text-gray-300 hover:bg-gray-800 hover:text-orange-400 cursor-pointer'
-      }`}
+      className={`${baseClasses} ${stateClasses}`}
     >
       {showPoint && outcome.point !== undefined && (
         <span className="text-gray-500 mr-1 text-xs">
           {prefix ?? ''}{formatPoint(outcome.point)}
         </span>
       )}
-      <span className={`font-mono font-medium ${outcome.price > 0 ? 'text-green-400' : disabled ? 'text-gray-600' : 'text-gray-300'}`}>
+      <span className={`font-mono font-medium ${
+        selected
+          ? 'text-orange-300'
+          : outcome.price > 0
+            ? 'text-green-400'
+            : disabled
+              ? 'text-gray-600'
+              : 'text-gray-300'
+      }`}>
         {formatOdds(outcome.price)}
       </span>
     </button>

@@ -1,63 +1,125 @@
-import type { Bet, Game } from '../types';
+import { useState } from 'react';
+import type { Bet, BetLeg, Game } from '../types';
 import { formatOdds, formatPoint, formatGameTime } from '../lib/odds';
 
 interface OpenBetsProps {
   bets: Bet[];
 }
 
+const marketLabels: Record<string, string> = {
+  h2h: 'ML',
+  spreads: 'SPR',
+  totals: 'TOT',
+};
+
+function LegRow({ leg }: { leg: BetLeg }) {
+  const game = typeof leg.gameId === 'object' ? (leg.gameId as Game) : null;
+  return (
+    <div className="flex items-center gap-3 text-xs text-gray-400 py-1">
+      <span className="px-1.5 py-0.5 bg-gray-700 rounded text-[10px] uppercase">
+        {marketLabels[leg.market] ?? leg.market}
+      </span>
+      <span className="text-gray-300">{leg.pick.name}</span>
+      {leg.pick.point !== undefined && (
+        <span className="text-gray-500">{formatPoint(leg.pick.point)}</span>
+      )}
+      <span className="font-mono text-gray-300">{formatOdds(leg.pick.price)}</span>
+      {game && (
+        <span className="text-gray-500 ml-auto truncate">
+          {game.awayTeam} @ {game.homeTeam}
+        </span>
+      )}
+      {leg.status !== 'pending' && (
+        <span className={`text-[10px] uppercase font-semibold ${
+          leg.status === 'won' ? 'text-green-400' : leg.status === 'lost' ? 'text-red-400' : 'text-yellow-400'
+        }`}>
+          {leg.status}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function OpenBets({ bets }: OpenBetsProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
   if (bets.length === 0) {
     return <p className="text-gray-500 text-sm py-4">No open bets.</p>;
   }
 
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-gray-500 text-left text-xs uppercase tracking-wider border-b border-gray-800">
-            <th className="px-3 py-2">Participant</th>
-            <th className="px-3 py-2">Game</th>
-            <th className="px-3 py-2">Type</th>
-            <th className="px-3 py-2">Pick</th>
-            <th className="px-3 py-2 text-right">Odds</th>
-            <th className="px-3 py-2 text-right">Wager</th>
-            <th className="px-3 py-2 text-right">To Win</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bets.map((bet) => {
-            const game = typeof bet.gameId === 'object' ? (bet.gameId as Game) : null;
-            return (
-              <tr key={bet._id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                <td className="px-3 py-2.5 font-medium text-white">{bet.participant}</td>
-                <td className="px-3 py-2.5 text-gray-400">
-                  {game ? `${game.awayTeam} @ ${game.homeTeam}` : '-'}
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className="px-1.5 py-0.5 bg-gray-800 rounded text-xs uppercase text-gray-400">
-                    {bet.market === 'h2h' ? 'ML' : bet.market === 'spreads' ? 'SPR' : 'TOT'}
+    <div className="space-y-2">
+      {bets.map((bet) => {
+        const isParlay = bet.type === 'parlay';
+        const expanded = expandedIds.has(bet._id);
+        const firstLeg = bet.legs[0];
+        const firstGame = firstLeg && typeof firstLeg.gameId === 'object' ? (firstLeg.gameId as Game) : null;
+
+        return (
+          <div key={bet._id} className="bg-gray-800/50 rounded-lg overflow-hidden">
+            {/* Summary row */}
+            <div
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm ${isParlay ? 'cursor-pointer hover:bg-gray-800/80' : ''}`}
+              onClick={() => isParlay && toggleExpand(bet._id)}
+            >
+              {isParlay && (
+                <svg
+                  className={`w-3.5 h-3.5 text-gray-500 transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
+              <span className="font-medium text-white">{bet.participant}</span>
+              {isParlay ? (
+                <span className="px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs uppercase font-semibold">
+                  Parlay ({bet.legs.length})
+                </span>
+              ) : (
+                <>
+                  <span className="text-gray-400 truncate">
+                    {firstGame ? `${firstGame.awayTeam} @ ${firstGame.homeTeam}` : '-'}
                   </span>
-                </td>
-                <td className="px-3 py-2.5 text-gray-300">
-                  {bet.pick.name}
-                  {bet.pick.point !== undefined && (
-                    <span className="text-gray-500 ml-1 text-xs">{formatPoint(bet.pick.point)}</span>
+                  {firstLeg && (
+                    <>
+                      <span className="px-1.5 py-0.5 bg-gray-700 rounded text-xs uppercase text-gray-400">
+                        {marketLabels[firstLeg.market] ?? firstLeg.market}
+                      </span>
+                      <span className="text-gray-300">{firstLeg.pick.name}</span>
+                      {firstLeg.pick.point !== undefined && (
+                        <span className="text-gray-500 text-xs">{formatPoint(firstLeg.pick.point)}</span>
+                      )}
+                      <span className="font-mono text-gray-300">{formatOdds(firstLeg.pick.price)}</span>
+                    </>
                   )}
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-300">
-                  {formatOdds(bet.pick.price)}
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-white">
-                  ${bet.amount.toFixed(2)}
-                </td>
-                <td className="px-3 py-2.5 text-right font-mono text-green-400">
-                  ${bet.payout.toFixed(2)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                </>
+              )}
+              <span className="ml-auto font-mono text-white">${bet.amount.toFixed(2)}</span>
+              <span className="font-mono text-green-400">${bet.payout.toFixed(2)}</span>
+            </div>
+
+            {/* Expanded legs for parlays */}
+            {isParlay && expanded && (
+              <div className="px-3 pb-3 pl-10 space-y-0.5 border-t border-gray-700/50">
+                {bet.legs.map((leg, idx) => (
+                  <LegRow key={idx} leg={leg} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

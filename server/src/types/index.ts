@@ -14,6 +14,9 @@ export interface IEvent {
   participants: IParticipant[];
   allowedTeams: string[];
   startingBalance: number;
+  maxParlayLegs: number;
+  startDate: Date;
+  endDate: Date;
   status: 'active' | 'archived';
   createdAt: Date;
   updatedAt: Date;
@@ -72,14 +75,24 @@ export interface IPick {
   point?: number;
 }
 
-export interface IBet {
-  _id: Types.ObjectId;
-  eventId: Types.ObjectId;
+export type LegStatus = 'pending' | 'won' | 'lost' | 'push';
+
+export interface IBetLeg {
   gameId: Types.ObjectId;
-  participant: string;
   market: MarketType;
   pick: IPick;
   bookmaker: string;
+  status: LegStatus;
+}
+
+export type BetType = 'straight' | 'parlay';
+
+export interface IBet {
+  _id: Types.ObjectId;
+  eventId: Types.ObjectId;
+  type: BetType;
+  legs: IBetLeg[];
+  participant: string;
   amount: number;
   payout: number;
   status: BetStatus;

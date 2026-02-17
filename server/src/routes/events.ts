@@ -30,7 +30,12 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/events - create event
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sportKey, participantNames, startingBalance, allowedTeams } = req.body;
+    const { name, sportKey, participantNames, startingBalance, allowedTeams, maxParlayLegs, startDate, endDate } = req.body;
+
+    if (!startDate || !endDate) {
+      res.status(400).json({ error: 'Start date and end date are required' });
+      return;
+    }
 
     const balance = startingBalance ?? 1000;
     const participants = (participantNames as string[]).map((pName) => ({
@@ -49,6 +54,9 @@ router.post('/', async (req: Request, res: Response) => {
       participants,
       allowedTeams: teams,
       startingBalance: balance,
+      maxParlayLegs: maxParlayLegs ?? 4,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
     });
 
     res.status(201).json(event);

@@ -12,6 +12,9 @@ export interface BettingEvent {
   participants: Participant[];
   allowedTeams: string[];
   startingBalance: number;
+  maxParlayLegs: number;
+  startDate: string;
+  endDate: string;
   status: 'active' | 'archived';
   createdAt: string;
   updatedAt: string;
@@ -70,14 +73,23 @@ export interface Pick {
   point?: number;
 }
 
-export interface Bet {
-  _id: string;
-  eventId: string;
+export type LegStatus = 'pending' | 'won' | 'lost' | 'push';
+export type BetType = 'straight' | 'parlay';
+
+export interface BetLeg {
   gameId: string | Game; // populated or just ID
-  participant: string;
   market: MarketType;
   pick: Pick;
   bookmaker: string;
+  status: LegStatus;
+}
+
+export interface Bet {
+  _id: string;
+  eventId: string;
+  type: BetType;
+  legs: BetLeg[];
+  participant: string;
   amount: number;
   payout: number;
   status: BetStatus;

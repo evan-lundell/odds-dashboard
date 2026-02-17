@@ -38,6 +38,9 @@ router.get('/', (req: Request, res: Response) => {
     'bets:settled': (payload: SSEEventMap['bets:settled']) => {
       send('bets:settled', payload);
     },
+    'bets:placed': (payload: SSEEventMap['bets:placed']) => {
+      send('bets:placed', payload);
+    },
   } as const;
 
   // Subscribe

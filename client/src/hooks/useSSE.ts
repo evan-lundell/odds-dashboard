@@ -5,6 +5,7 @@ export interface SSEHandlers {
   onGamesUpdated?: (games: Game[]) => void;
   onScoresUpdated?: (games: Game[]) => void;
   onBetsSettled?: (bets: Bet[], participants: Participant[]) => void;
+  onBetPlaced?: (bet: Bet) => void;
 }
 
 export function useSSE(eventId: string | null, handlers: SSEHandlers) {
@@ -35,6 +36,13 @@ export function useSSE(eventId: string | null, handlers: SSEHandlers) {
       try {
         const payload = JSON.parse(e.data);
         handlersRef.current.onBetsSettled?.(payload.bets, payload.participants);
+      } catch { /* ignore */ }
+    });
+
+    source.addEventListener('bets:placed', (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        handlersRef.current.onBetPlaced?.(payload.bet);
       } catch { /* ignore */ }
     });
 

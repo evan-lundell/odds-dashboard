@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useEvents } from '../hooks/useEvent';
 import { useBets, useLeaderboard } from '../hooks/useBets';
 import { useSSE } from '../hooks/useSSE';
-import type { Game, Bet, Participant } from '../types';
+import type { Bet, Participant } from '../types';
 import OpenBets from './OpenBets';
 import ResolvedBets from './ResolvedBets';
 import Leaderboard from './Leaderboard';
@@ -13,17 +13,24 @@ export default function BetsStandings() {
 
   const activeEventId = selectedEventId ?? events.find((e) => e.status === 'active')?._id ?? null;
 
-  const { bets: openBets, setBets: setOpenBets, loading: openLoading } = useBets(activeEventId, 'pending');
-  const { bets: resolvedBets, setBets: setResolvedBets, loading: resolvedLoading } = useBets(activeEventId, 'settled');
-  const { leaderboard, setLeaderboard, loading: lbLoading, reload: reloadLeaderboard } = useLeaderboard(activeEventId);
+  const { bets: openBets, loading: openLoading, reload: reloadOpen } = useBets(activeEventId, 'pending');
+  const { bets: resolvedBets, loading: resolvedLoading, reload: reloadResolved } = useBets(activeEventId, 'settled');
+  const { leaderboard, loading: lbLoading, reload: reloadLeaderboard } = useLeaderboard(activeEventId);
 
-  // SSE: auto-update when bets settle
+  const reloadAll = useCallback(() => {
+    reloadOpen();
+    reloadResolved();
+    reloadLeaderboard();
+  }, [reloadOpen, reloadResolved, reloadLeaderboard]);
+
+  // SSE: auto-update when bets are settled or placed
   useSSE(activeEventId, {
     onBetsSettled: useCallback((_bets: Bet[], _participants: Participant[]) => {
-      // Simplest approach: reload all three sections
-      // Could do granular merge, but a full reload is fine given the data size
-      reloadLeaderboard();
-    }, [reloadLeaderboard]),
+      reloadAll();
+    }, [reloadAll]),
+    onBetPlaced: useCallback((_bet: Bet) => {
+      reloadAll();
+    }, [reloadAll]),
   });
 
   if (eventsLoading) {

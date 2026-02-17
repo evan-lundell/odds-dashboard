@@ -2,11 +2,26 @@ import { Router, type Request, type Response } from 'express';
 import { Bet } from '../models/Bet.js';
 import { Event } from '../models/Event.js';
 import { Game } from '../models/Game.js';
-import type { MarketType } from '../types/index.js';
+import { eventBus } from '../services/eventBus.js';
+import type { MarketType, BetType } from '../types/index.js';
 
 const router = Router();
 
-// GET /api/bets?eventId=X&status=pending|won|lost|push&participant=Y&sort=-settledAt
+// ─── Odds helpers ────────────────────────────────────────
+
+function americanToDecimal(price: number): number {
+  return price > 0
+    ? (price / 100) + 1
+    : (100 / Math.abs(price)) + 1;
+}
+
+function calculatePayout(amount: number, prices: number[]): number {
+  const combinedDecimal = prices.reduce((acc, p) => acc * americanToDecimal(p), 1);
+  return Math.round(amount * combinedDecimal * 100) / 100;
+}
+
+// ─── GET /api/bets ───────────────────────────────────────
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { eventId, status, participant, sort } = req.query;
@@ -17,7 +32,6 @@ router.get('/', async (req: Request, res: Response) => {
 
     const filter: Record<string, unknown> = { eventId };
     if (status) {
-      // Support "settled" as a convenience alias for won|lost|push
       if (status === 'settled') {
         filter.status = { $in: ['won', 'lost', 'push'] };
       } else {
@@ -37,14 +51,15 @@ router.get('/', async (req: Request, res: Response) => {
       sortObj.createdAt = -1;
     }
 
-    const bets = await Bet.find(filter).sort(sortObj).populate('gameId');
+    const bets = await Bet.find(filter).sort(sortObj).populate('legs.gameId');
     res.json(bets);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch bets' });
   }
 });
 
-// GET /api/bets/leaderboard?eventId=X
+// ─── GET /api/bets/leaderboard ───────────────────────────
+
 router.get('/leaderboard', async (req: Request, res: Response) => {
   try {
     const { eventId } = req.query;
@@ -59,7 +74,6 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       return;
     }
 
-    // Build leaderboard from participants + bet records
     const leaderboard = await Promise.all(
       event.participants.map(async (p) => {
         const [wins, losses, pushes, pending] = await Promise.all([
@@ -89,10 +103,29 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/bets - place a bet
+// ─── POST /api/bets ──────────────────────────────────────
+
+interface LegInput {
+  gameId: string;
+  market: MarketType;
+  pick: { name: string; price: number; point?: number };
+  bookmaker: string;
+}
+
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { eventId, gameId, participant, market, pick, bookmaker, amount } = req.body;
+    const { eventId, participant, amount, legs } = req.body as {
+      eventId: string;
+      participant: string;
+      amount: number;
+      legs: LegInput[];
+    };
+
+    // Basic validation
+    if (!eventId || !participant || !amount || !legs || legs.length === 0) {
+      res.status(400).json({ error: 'eventId, participant, amount, and legs are required' });
+      return;
+    }
 
     // Validate event + participant
     const event = await Event.findById(eventId);
@@ -107,15 +140,41 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    // Validate game exists and hasn't started/completed
-    const game = await Game.findById(gameId);
-    if (!game) {
-      res.status(404).json({ error: 'Game not found' });
+    // Determine bet type
+    const betType: BetType = legs.length === 1 ? 'straight' : 'parlay';
+
+    // Validate parlay constraints
+    if (betType === 'parlay' && legs.length > event.maxParlayLegs) {
+      res.status(400).json({
+        error: `Parlay exceeds maximum of ${event.maxParlayLegs} legs`,
+      });
       return;
     }
-    if (game.completed) {
-      res.status(400).json({ error: 'Game is already completed' });
-      return;
+
+    // Validate no duplicate game + market combinations
+    const seen = new Set<string>();
+    for (const leg of legs) {
+      const key = `${leg.gameId}:${leg.market}`;
+      if (seen.has(key)) {
+        res.status(400).json({
+          error: 'Cannot have multiple picks on the same market for the same game',
+        });
+        return;
+      }
+      seen.add(key);
+    }
+
+    // Validate all games exist and are not completed
+    for (const leg of legs) {
+      const game = await Game.findById(leg.gameId);
+      if (!game) {
+        res.status(404).json({ error: `Game ${leg.gameId} not found` });
+        return;
+      }
+      if (game.completed) {
+        res.status(400).json({ error: `Game ${game.homeTeam} vs ${game.awayTeam} is already completed` });
+        return;
+      }
     }
 
     // Validate balance
@@ -127,20 +186,21 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Calculate potential payout
-    const price = pick.price;
-    const profit = price > 0
-      ? amount * (price / 100)
-      : amount * (100 / Math.abs(price));
-    const payout = Math.round((amount + profit) * 100) / 100;
+    const prices = legs.map((l) => l.pick.price);
+    const payout = calculatePayout(amount, prices);
 
-    // Create bet
+    // Create bet with legs
     const bet = await Bet.create({
       eventId,
-      gameId,
+      type: betType,
+      legs: legs.map((l) => ({
+        gameId: l.gameId,
+        market: l.market,
+        pick: l.pick,
+        bookmaker: l.bookmaker,
+        status: 'pending',
+      })),
       participant,
-      market: market as MarketType,
-      pick,
-      bookmaker,
       amount,
       payout,
     });
@@ -150,6 +210,12 @@ router.post('/', async (req: Request, res: Response) => {
       { _id: eventId, 'participants.name': participant },
       { $inc: { 'participants.$.balance': -amount } },
     );
+
+    // Populate legs.gameId before returning
+    await bet.populate('legs.gameId');
+
+    // Broadcast to SSE clients
+    eventBus.emit('bets:placed', { bet: bet.toObject() });
 
     res.status(201).json(bet);
   } catch (err) {

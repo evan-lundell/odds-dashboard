@@ -8,7 +8,10 @@ export default function EventSetup() {
   const [startingBalance, setStartingBalance] = useState('1000');
   const [participantInput, setParticipantInput] = useState('');
   const [participants, setParticipants] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [teamsText, setTeamsText] = useState('');
+  const [maxParlayLegs, setMaxParlayLegs] = useState('4');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -40,6 +43,8 @@ export default function EventSetup() {
     setError('');
 
     if (!name.trim()) { setError('Event name is required'); return; }
+    if (!startDate || !endDate) { setError('Start and end dates are required'); return; }
+    if (new Date(endDate) <= new Date(startDate)) { setError('End date must be after start date'); return; }
     if (participants.length < 2) { setError('Add at least 2 participants'); return; }
 
     // Parse team names from the textarea (comma, newline, or tab separated)
@@ -55,6 +60,9 @@ export default function EventSetup() {
         participantNames: participants,
         allowedTeams,
         startingBalance: parseFloat(startingBalance) || 1000,
+        maxParlayLegs: parseInt(maxParlayLegs, 10) || 4,
+        startDate,
+        endDate,
       });
       navigate('/');
     } catch {
@@ -81,6 +89,28 @@ export default function EventSetup() {
           />
         </div>
 
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
+            />
+          </div>
+        </div>
+
         {/* Starting Balance */}
         <div>
           <label className="block text-sm text-gray-400 mb-1">Starting Balance ($)</label>
@@ -89,6 +119,22 @@ export default function EventSetup() {
             min="1"
             value={startingBalance}
             onChange={(e) => setStartingBalance(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+        </div>
+
+        {/* Max Parlay Legs */}
+        <div>
+          <label className="block text-sm text-gray-400 mb-1">Max Parlay Legs</label>
+          <p className="text-xs text-gray-500 mb-2">
+            Maximum number of legs allowed in a single parlay bet.
+          </p>
+          <input
+            type="number"
+            min="2"
+            max="15"
+            value={maxParlayLegs}
+            onChange={(e) => setMaxParlayLegs(e.target.value)}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
         </div>
