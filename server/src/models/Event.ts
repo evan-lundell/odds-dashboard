@@ -7,6 +7,7 @@ const participantSchema = new Schema<IParticipant>(
   {
     name: { type: String, required: true },
     balance: { type: Number, required: true },
+    runningTotal: { type: Number, required: true, default: 0 },
   },
   { _id: false },
 );
@@ -21,6 +22,8 @@ const eventSchema = new Schema<EventDocument>(
     maxParlayLegs: { type: Number, required: true, default: 4 },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
+    dailyReset: { type: Boolean, required: true, default: false },
+    lastResetAt: { type: Date, default: null },
     status: { type: String, enum: ['active', 'archived'], default: 'active' },
   },
   { timestamps: true },

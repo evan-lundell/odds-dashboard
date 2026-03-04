@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 export interface IParticipant {
   name: string;
   balance: number;
+  runningTotal: number;
 }
 
 export interface IEvent {
@@ -17,6 +18,8 @@ export interface IEvent {
   maxParlayLegs: number;
   startDate: Date;
   endDate: Date;
+  dailyReset: boolean;
+  lastResetAt: Date | null;
   status: 'active' | 'archived';
   createdAt: Date;
   updatedAt: Date;
