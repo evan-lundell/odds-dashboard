@@ -85,20 +85,21 @@ function evaluateLeg(
 
 /**
  * Determine overall bet status and payout from its legs.
- * Returns null if the bet isn't ready to settle yet (parlay with pending legs).
+ * Returns null if the bet isn't ready to settle yet (parlay with pending legs and no losing legs).
+ * If any leg loses, the entire bet is treated as lost immediately, even if other legs are still pending.
  */
 function settleBet(
   bet: IBet,
 ): { status: BetStatus; payout: number } | null {
   const legStatuses = bet.legs.map((l) => l.status);
 
-  // If any leg is still pending, can't settle yet
-  if (legStatuses.some((s) => s === 'pending')) return null;
-
   // Any leg lost = whole bet lost
   if (legStatuses.some((s) => s === 'lost')) {
     return { status: 'lost', payout: 0 };
   }
+
+  // If any leg is still pending and none have lost yet, can't settle yet
+  if (legStatuses.some((s) => s === 'pending')) return null;
 
   // All legs pushed = return stake
   if (legStatuses.every((s) => s === 'push')) {

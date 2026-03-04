@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 
 const links = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/bets', label: 'Bets & Standings' },
+  { to: '/odds', label: 'Odds' },
+  { to: '/bets', label: 'Bets' },
+  { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/events/new', label: 'New Event' },
 ];
 
@@ -13,7 +14,7 @@ export default function Navbar() {
     <nav className="bg-gray-900 border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-14 gap-8">
-          <Link to="/" className="text-lg font-bold text-orange-400 tracking-tight">
+          <Link to="/odds" className="text-lg font-bold text-orange-400 tracking-tight">
             March Madness
           </Link>
           <div className="flex gap-1">

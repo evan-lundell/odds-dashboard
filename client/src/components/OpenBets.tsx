@@ -6,6 +6,13 @@ interface OpenBetsProps {
   bets: Bet[];
 }
 
+const legStatusIcons: Record<string, string> = {
+  won: 'text-green-400',
+  lost: 'text-red-400',
+  push: 'text-yellow-400',
+  pending: 'text-gray-500',
+};
+
 const marketLabels: Record<string, string> = {
   h2h: 'ML',
   spreads: 'SPR',
@@ -16,6 +23,9 @@ function LegRow({ leg }: { leg: BetLeg }) {
   const game = typeof leg.gameId === 'object' ? (leg.gameId as Game) : null;
   return (
     <div className="flex items-center gap-3 text-xs text-gray-400 py-1">
+      <span className={`font-bold ${legStatusIcons[leg.status] ?? 'text-gray-500'}`}>
+        {leg.status === 'won' ? '\u2713' : leg.status === 'lost' ? '\u2717' : leg.status === 'push' ? '\u2014' : '\u2022'}
+      </span>
       <span className="px-1.5 py-0.5 bg-gray-700 rounded text-[10px] uppercase">
         {marketLabels[leg.market] ?? leg.market}
       </span>
@@ -27,13 +37,6 @@ function LegRow({ leg }: { leg: BetLeg }) {
       {game && (
         <span className="text-gray-500 ml-auto truncate">
           {game.awayTeam} @ {game.homeTeam}
-        </span>
-      )}
-      {leg.status !== 'pending' && (
-        <span className={`text-[10px] uppercase font-semibold ${
-          leg.status === 'won' ? 'text-green-400' : leg.status === 'lost' ? 'text-red-400' : 'text-yellow-400'
-        }`}>
-          {leg.status}
         </span>
       )}
     </div>

@@ -74,6 +74,8 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       return;
     }
 
+    const isDailyReset = event.dailyReset ?? false;
+
     const leaderboard = await Promise.all(
       event.participants.map(async (p) => {
         const [wins, losses, pushes, pending] = await Promise.all([
@@ -82,6 +84,27 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
           Bet.countDocuments({ eventId, participant: p.name, status: 'push' }),
           Bet.countDocuments({ eventId, participant: p.name, status: 'pending' }),
         ]);
+
+        if (isDailyReset) {
+          const runningTotal = (p as any).runningTotal ?? 0;
+          const dailyBalance = p.balance;
+          // Net P/L for daily-reset events: historical running total
+          // plus current daily balance minus the original starting stack.
+          const netProfit = runningTotal + dailyBalance - event.startingBalance;
+
+          return {
+            name: p.name,
+            balance: p.balance,
+            dailyBalance,
+            runningTotal,
+            startingBalance: event.startingBalance,
+            netProfit,
+            wins,
+            losses,
+            pushes,
+            pending,
+          };
+        }
 
         return {
           name: p.name,
@@ -96,7 +119,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       }),
     );
 
-    leaderboard.sort((a, b) => b.balance - a.balance);
+    if (isDailyReset) {
+      leaderboard.sort((a, b) => (b.runningTotal ?? 0) - (a.runningTotal ?? 0));
+    } else {
+      leaderboard.sort((a, b) => b.balance - a.balance);
+    }
     res.json(leaderboard);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch leaderboard' });

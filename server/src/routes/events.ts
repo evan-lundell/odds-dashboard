@@ -30,7 +30,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/events - create event
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sportKey, participantNames, startingBalance, allowedTeams, maxParlayLegs, startDate, endDate } = req.body;
+    const {
+      name,
+      sportKey,
+      participantNames,
+      startingBalance,
+      allowedTeams,
+      maxParlayLegs,
+      startDate,
+      endDate,
+      dailyReset,
+    } = req.body;
 
     if (!startDate || !endDate) {
       res.status(400).json({ error: 'Start date and end date are required' });
@@ -41,6 +51,7 @@ router.post('/', async (req: Request, res: Response) => {
     const participants = (participantNames as string[]).map((pName) => ({
       name: pName.trim(),
       balance,
+      runningTotal: 0,
     }));
 
     // Clean up team names: trim whitespace, remove empties
@@ -57,6 +68,8 @@ router.post('/', async (req: Request, res: Response) => {
       maxParlayLegs: maxParlayLegs ?? 4,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
+      dailyReset: Boolean(dailyReset),
+      lastResetAt: null,
     });
 
     res.status(201).json(event);
@@ -68,7 +81,15 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/events/:id - update event (e.g. add participants)
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const event = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Prevent changing dailyReset after creation
+    const { dailyReset, ...rest } = req.body ?? {};
+
+    if (typeof dailyReset !== 'undefined') {
+      res.status(400).json({ error: 'dailyReset cannot be modified after event creation' });
+      return;
+    }
+
+    const event = await Event.findByIdAndUpdate(req.params.id, rest, { new: true });
     if (!event) {
       res.status(404).json({ error: 'Event not found' });
       return;
