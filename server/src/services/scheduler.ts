@@ -2,9 +2,11 @@ import cron from 'node-cron';
 import { env } from '../config/env.js';
 import { syncOdds } from './oddsService.js';
 import { syncScores } from './scoreService.js';
+import { runDailyResets } from './dailyResetService.js';
 
 let oddsTask: cron.ScheduledTask | null = null;
 let scoresTask: cron.ScheduledTask | null = null;
+let dailyResetTask: cron.ScheduledTask | null = null;
 
 export function startScheduler(): void {
   const intervalSec = Math.max(Math.round(env.ODDS_POLL_INTERVAL_MS / 1000), 10);
@@ -27,10 +29,25 @@ export function startScheduler(): void {
     console.log(`[scheduler] Running scores sync at ${new Date().toISOString()}`);
     await syncScores();
   });
+
+  // Daily balance reset for events with dailyReset enabled.
+  // Production: 03:00 server time each day. Simulation: every minute so we can trigger resets on a short "day" (e.g. 3 min).
+  if (env.MOCK_API) {
+    console.log('[scheduler] Starting simulated daily reset check every 1m');
+    dailyResetTask = cron.schedule('0 * * * * *', async () => {
+      await runDailyResets();
+    });
+  } else {
+    dailyResetTask = cron.schedule('0 3 * * *', async () => {
+      console.log(`[scheduler] Running daily resets at ${new Date().toISOString()}`);
+      await runDailyResets();
+    });
+  }
 }
 
 export function stopScheduler(): void {
   oddsTask?.stop();
   scoresTask?.stop();
+  dailyResetTask?.stop();
   console.log('[scheduler] Stopped');
 }

@@ -33,6 +33,7 @@ export async function createEvent(body: {
   maxParlayLegs?: number;
   startDate: string;
   endDate: string;
+  dailyReset?: boolean;
 }): Promise<BettingEvent> {
   const { data } = await api.post<BettingEvent>('/events', body);
   return data;

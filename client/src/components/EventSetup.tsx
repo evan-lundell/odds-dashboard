@@ -12,6 +12,7 @@ export default function EventSetup() {
   const [endDate, setEndDate] = useState('');
   const [teamsText, setTeamsText] = useState('');
   const [maxParlayLegs, setMaxParlayLegs] = useState('4');
+  const [dailyReset, setDailyReset] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -63,6 +64,7 @@ export default function EventSetup() {
         maxParlayLegs: parseInt(maxParlayLegs, 10) || 4,
         startDate,
         endDate,
+        dailyReset,
       });
       navigate('/');
     } catch {
@@ -137,6 +139,26 @@ export default function EventSetup() {
             onChange={(e) => setMaxParlayLegs(e.target.value)}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
+        </div>
+
+        {/* Daily Reset Option */}
+        <div className="flex items-start gap-3">
+          <input
+            id="daily-reset"
+            type="checkbox"
+            checked={dailyReset}
+            onChange={(e) => setDailyReset(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-700 bg-gray-800 text-orange-500 focus:ring-orange-500"
+          />
+          <div>
+            <label htmlFor="daily-reset" className="block text-sm text-gray-200 mb-1 font-medium">
+              Reset player balances daily
+            </label>
+            <p className="text-xs text-gray-500">
+              When enabled, each player&apos;s balance is reset to the starting amount every day at 3am server time,
+              while a running total tracks the sum of their end-of-day balances across the entire event.
+            </p>
+          </div>
         </div>
 
         {/* Allowed Teams */}

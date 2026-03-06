@@ -3,6 +3,7 @@
 export interface Participant {
   name: string;
   balance: number;
+  runningTotal: number;
 }
 
 export interface BettingEvent {
@@ -15,6 +16,8 @@ export interface BettingEvent {
   maxParlayLegs: number;
   startDate: string;
   endDate: string;
+  dailyReset: boolean;
+  lastResetAt: string | null;
   status: 'active' | 'archived';
   createdAt: string;
   updatedAt: string;
@@ -102,6 +105,8 @@ export interface Bet {
 export interface LeaderboardEntry {
   name: string;
   balance: number;
+  dailyBalance?: number;
+  runningTotal?: number;
   startingBalance: number;
   netProfit: number;
   wins: number;
