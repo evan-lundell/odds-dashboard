@@ -24,9 +24,6 @@ export default function DailyResetTables({ leaderboard }: DailyResetTablesProps)
       <section>
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-bold text-white">Daily Totals</h2>
-          <p className="text-xs text-gray-500">
-            Current balances and open bets for today. Sorted by current balance (desc).
-          </p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
@@ -84,9 +81,6 @@ export default function DailyResetTables({ leaderboard }: DailyResetTablesProps)
       <section>
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-bold text-white">Running Totals</h2>
-          <p className="text-xs text-gray-500">
-            Cumulative performance across all completed days. Sorted by running total (desc).
-          </p>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">

@@ -1,5 +1,8 @@
-import { Event } from '../models/Event.js';
-import type { IEvent } from '../types/index.js';
+import { Event, type EventDocument } from '../models/Event.js';
+import { env } from '../config/env.js';
+
+/** In mock mode, treat this many ms as one "day" for simulation. */
+const SIMULATED_DAY_MS = 3 * 60 * 1000;
 
 function isSameUtcDate(a: Date, b: Date): boolean {
   return (
@@ -12,7 +15,7 @@ function isSameUtcDate(a: Date, b: Date): boolean {
 export async function runDailyResets(): Promise<void> {
   const now = new Date();
 
-  const events: (IEvent & { _id: IEvent['_id'] })[] = await Event.find({
+  const events: EventDocument[] = await Event.find({
     status: 'active',
     dailyReset: true,
   });
@@ -21,9 +24,19 @@ export async function runDailyResets(): Promise<void> {
     // Only reset for events that are currently in their scheduled window
     if (now < event.startDate || now > event.endDate) continue;
 
-    // Ensure we only reset once per UTC calendar day
-    if (event.lastResetAt && isSameUtcDate(event.lastResetAt, now)) {
-      continue;
+    if (env.MOCK_API) {
+      // Simulation: run reset at most once per simulated "day" (e.g. every 3 minutes)
+      if (
+        event.lastResetAt &&
+        now.getTime() - event.lastResetAt.getTime() < SIMULATED_DAY_MS
+      ) {
+        continue;
+      }
+    } else {
+      // Production: ensure we only reset once per UTC calendar day
+      if (event.lastResetAt && isSameUtcDate(event.lastResetAt, now)) {
+        continue;
+      }
     }
 
     let changed = false;
@@ -40,19 +53,15 @@ export async function runDailyResets(): Promise<void> {
     });
 
     if (!changed) continue;
-
-    event.participants = updatedParticipants as IEvent['participants'];
+    event.participants = updatedParticipants;
     event.lastResetAt = now;
 
-    await Event.updateOne(
-      { _id: event._id },
-      {
-        $set: {
-          participants: updatedParticipants,
-          lastResetAt: now,
-        },
-      },
-    );
+    if (env.MOCK_API) {
+      console.log(`[dailyReset] Simulated daily reset for event "${event.name}"`);
+    }
+
+    // Persist updated participants + lastResetAt via the document instance
+    await event.save();
   }
 }
 

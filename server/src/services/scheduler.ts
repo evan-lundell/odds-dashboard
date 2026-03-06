@@ -31,11 +31,18 @@ export function startScheduler(): void {
   });
 
   // Daily balance reset for events with dailyReset enabled.
-  // Runs at 03:00 server time each day.
-  dailyResetTask = cron.schedule('0 3 * * *', async () => {
-    console.log(`[scheduler] Running daily resets at ${new Date().toISOString()}`);
-    await runDailyResets();
-  });
+  // Production: 03:00 server time each day. Simulation: every minute so we can trigger resets on a short "day" (e.g. 3 min).
+  if (env.MOCK_API) {
+    console.log('[scheduler] Starting simulated daily reset check every 1m');
+    dailyResetTask = cron.schedule('0 * * * * *', async () => {
+      await runDailyResets();
+    });
+  } else {
+    dailyResetTask = cron.schedule('0 3 * * *', async () => {
+      console.log(`[scheduler] Running daily resets at ${new Date().toISOString()}`);
+      await runDailyResets();
+    });
+  }
 }
 
 export function stopScheduler(): void {
